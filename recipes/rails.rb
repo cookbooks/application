@@ -73,7 +73,7 @@ directory "#{app['deploy_to']}/shared" do
   recursive true
 end
 
-%w{ log pids system }.each do |dir|
+%w{ log pids system vendor_bundle }.each do |dir|
 
   directory "#{app['deploy_to']}/shared/#{dir}" do
     owner app['owner']
@@ -87,11 +87,11 @@ end
 if app.has_key?("deploy_key")
   ruby_block "write_key" do
     block do
-      f = File.open("#{app['deploy_to']}/id_deploy", "w")
+      f = ::File.open("#{app['deploy_to']}/id_deploy", "w")
       f.print(app["deploy_key"])
       f.close
     end
-    not_if do File.exists?("#{app['deploy_to']}/id_deploy"); end
+    not_if do ::File.exists?("#{app['deploy_to']}/id_deploy"); end
   end
 
   file "#{app['deploy_to']}/id_deploy" do
@@ -172,7 +172,11 @@ deploy_revision app['id'] do
 
   before_migrate do
     if app['gems'].has_key?('bundler')
-      execute "bundle install" do
+      link "#{release_path}/vendor/bundle" do
+        to "#{app['deploy_to']}/shared/vendor_bundle"
+      end
+      common_groups = %w{development test cucumber staging production}
+      execute "bundle install --deployment --without #{(common_groups -([node.app_environment])).join(' ')}" do
         ignore_failure true
         cwd release_path
       end
